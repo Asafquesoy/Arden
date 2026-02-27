@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resolutor de Autómatas: Lema de Arden</title>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h1><i class="fas fa-sliders-h"></i> Configuración</h1>
+            
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-shrink: 0;">
+                <button class="btn btn-secondary" style="flex: 1; margin: 0; border: 1px solid rgba(109, 40, 217, 0.4);" onclick="saveAutomatonJSON()">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+                <button class="btn btn-secondary" style="flex: 1; margin: 0; border: 1px solid rgba(109, 40, 217, 0.4);" onclick="document.getElementById('file-upload').click()">
+                    <i class="fas fa-folder-open"></i> Cargar
+                </button>
+                <input type="file" id="file-upload" style="display: none;" accept=".json" onchange="loadAutomatonJSON(event)">
+            </div>
+
+            <div class="form-group">
+                <label>Estados (ej. q0,q1)</label>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="text" id="states" oninput="drawAutomaton()" value="q0">
+                    <button class="btn btn-secondary" style="width: auto; margin-bottom: 0; padding: 0.6rem 1rem;" onclick="addNewState()" title="Añadir nuevo estado">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Alfabeto</label>
+                <input type="text" id="alphabet" value="0,1" oninput="drawAutomaton()">
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Estado Inicial</label>
+                    <input type="text" id="initial" oninput="drawAutomaton()" value="q0">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Estado(s) Final(es)</label>
+                    <input type="text" id="final" oninput="drawAutomaton()" value="q0">
+                </div>
+            </div>
+
+            <label style="flex-shrink: 0;">Transiciones δ(q, a) = p</label>
+            <div class="transitions-container" id="transitions">
+                </div>
+            
+            <button class="btn btn-secondary" onclick="addTransitionRow()">
+                <i class="fas fa-plus"></i> Añadir Manualmente
+            </button>
+            <button class="btn btn-run" onclick="solveArden()">
+                <i class="fas fa-magic"></i> Resolver Autómata
+            </button>
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-project-diagram"></i> Diagrama Interactivo</h2>
+            <div id="mynetwork"></div>
+            <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                <button class="btn btn-secondary" style="flex: 1;" onclick="reorderDiagram()">
+    <i class="fas fa-sync-alt"></i> Centrar
+</button>
+                </button>
+                <button class="btn" style="flex: 1.5; background: rgba(109, 40, 217, 0.2); color: #c4b5fd; border: 1px solid rgba(109, 40, 217, 0.4);" onclick="enableEdgeDrawing()">
+                    <i class="fas fa-draw-polygon"></i> Dibujar Ruta
+                </button>
+                <button class="btn" style="flex: 1.5; background: rgba(5, 150, 105, 0.2); color: #34d399; border: 1px solid rgba(5, 150, 105, 0.4);" onclick="exportImage()">
+                    <i class="fas fa-camera"></i> Imagen PNG
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-terminal"></i> Motor Algebraico (Literal)</h2>
+            <div class="output-console" id="console">
+                <div class="step" style="color: var(--text-muted);">El sistema está listo. Dibuja tu autómata...</div>
+            </div>
+            <div class="final-result">
+                <h3>Expresión Regular Final</h3>
+                <div class="regex-output" id="final-regex">∅</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
