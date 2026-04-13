@@ -1,0 +1,14 @@
+# Executables
+*.exe
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor directories
+.vscode/
+.idea/
+CLAUDE.md
+# Automaton saves (optional: remove if you want to track example configs)
+configuracion_automata.json
