@@ -875,29 +875,32 @@ function cargarAFDConvertido() {
 }
 
 // ==========================================
-// MINIMIZACIÓN DE AFD (LLENADO DE TABLA)
+// MINIMIZACIÓN DE AFD (REFINAMIENTO DE PARTICIONES)
 // ==========================================
 
-// Construye el elemento DOM de la tabla triangular de distinguibilidad
-function buildDistTable(Q, dist, reason) {
-    const n = Q.length;
-    let html = `<table class="conversion-table" style="font-size:0.75rem; width:auto; margin:0.3rem 0;">`;
-    html += `<thead><tr><th></th>`;
-    for (let i = 0; i < n - 1; i++) html += `<th>${Q[i]}</th>`;
+// Construye la tabla HTML de un grupo para una iteración del refinamiento
+function buildGroupTable(group, alphabet, delta, classOf) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin: 0.4rem 0 0.2rem 1.2rem;';
+
+    let html = `<div style="font-size:0.78rem; font-weight:600; color:var(--primary); margin-bottom:0.2rem;">${group.name}: {${group.states.join(', ')}}</div>`;
+    html += `<table class="conversion-table" style="width:auto; font-size:0.75rem; margin:0;">`;
+    html += `<thead><tr><th>Estado</th>`;
+    for (const sym of alphabet) html += `<th>${sym}</th>`;
     html += `</tr></thead><tbody>`;
-    for (let j = 1; j < n; j++) {
-        html += `<tr><th>${Q[j]}</th>`;
-        for (let i = 0; i < j; i++) {
-            const marked = dist[i][j];
-            const tip = reason[i][j] ? ` title="${reason[i][j].replace(/"/g, '&quot;')}"` : '';
-            const color = marked ? 'color:#f87171;font-weight:700' : 'color:#34d399';
-            html += `<td${tip} style="text-align:center;${color}">${marked ? '✗' : '–'}</td>`;
+
+    for (const s of group.states) {
+        html += `<tr><td><b>${s}</b></td>`;
+        for (const sym of alphabet) {
+            const dest      = delta(s, sym);
+            const destGroup = dest ? (classOf[dest] ?? 'MUERTO') : 'MUERTO';
+            const isMuerto  = destGroup === 'MUERTO';
+            html += `<td style="${isMuerto ? 'color:var(--text-muted);font-style:italic;' : ''}">${destGroup}</td>`;
         }
-        for (let i = j; i < n - 1; i++) html += `<td></td>`;
         html += `</tr>`;
     }
     html += `</tbody></table>`;
-    const wrap = document.createElement('div');
+
     wrap.innerHTML = html;
     return wrap;
 }
@@ -943,6 +946,23 @@ function minimizarAFD() {
         return t ? t.to : null;
     };
 
+    // Letras del abecedario de Z hacia atrás para nombrar grupos
+    const LETTERS = 'ZYXWVUTSRQPONMLKJIHGFEDCBA'.split('');
+    let letterIndex = 0;
+    const nextLetter = () => {
+        if (letterIndex < LETTERS.length) return LETTERS[letterIndex++];
+        // más de 26 grupos: usar dobles letras (ZZ, ZY, ...)
+        const extra = letterIndex - LETTERS.length;
+        letterIndex++;
+        return LETTERS[Math.floor(extra / 26) % 26] + LETTERS[extra % 26];
+    };
+
+    const buildClassOf = (part) => {
+        const map = {};
+        for (const g of part) for (const s of g.states) map[s] = g.name;
+        return map;
+    };
+
     // ── Paso 1: Eliminar estados inalcanzables ─────────────────────────────
     logM(`<span class="step-title">Paso 1: Eliminar estados inalcanzables</span>`);
     const reachable = new Set([initial]);
@@ -973,116 +993,80 @@ function minimizarAFD() {
     logM(`<br><span class="step-title">Paso 2: Partición inicial (finales vs no finales)</span>`);
     const finalSet    = Q.filter(s => finals.includes(s));
     const nonFinalSet = Q.filter(s => !finals.includes(s));
-    logM(`&nbsp;&nbsp;Finales    F  = {${finalSet.join(', ') || '∅'}}`);
-    logM(`&nbsp;&nbsp;No finales Q\\F = {${nonFinalSet.join(', ') || '∅'}}`);
-    logM(`&nbsp;&nbsp;Todo par (f, nf) con f ∈ F y nf ∈ Q\\F se marca distinguible.`);
 
-    // ── Paso 3: Algoritmo de llenado de tabla ──────────────────────────────
-    logM(`<br><span class="step-title">Paso 3: Llenado de tabla de distinguibilidad</span>`);
+    let partition = [];
+    if (finalSet.length)    partition.push({ name: nextLetter(), states: finalSet });
+    if (nonFinalSet.length) partition.push({ name: nextLetter(), states: nonFinalSet });
 
-    const n   = Q.length;
-    const idx = {};
-    Q.forEach((s, i) => idx[s] = i);
+    partition.forEach(g => logM(`&nbsp;&nbsp;<b>${g.name}</b> = {${g.states.join(', ')}}`));
 
-    const dist   = Array.from({ length: n }, () => Array(n).fill(false));
-    const reason = Array.from({ length: n }, () => Array(n).fill(''));
+    // ── Paso 3: Refinamiento iterativo ─────────────────────────────────────
+    logM(`<br><span class="step-title">Paso 3: Refinamiento de particiones</span>`);
 
-    // Marcado inicial
-    const initMarked = [];
-    for (let i = 0; i < n; i++) {
-        for (let j = i + 1; j < n; j++) {
-            if (finals.includes(Q[i]) !== finals.includes(Q[j])) {
-                dist[i][j]   = true;
-                reason[i][j] = 'uno es final, el otro no';
-                initMarked.push(`(${Q[i]}, ${Q[j]})`);
+    let iteration = 0;
+    let stable    = false;
+
+    while (!stable) {
+        stable = true;
+        iteration++;
+        logM(`<br>&nbsp;&nbsp;<b>Iteración ${iteration}:</b>`);
+
+        const classOf      = buildClassOf(partition);
+        const newPartition = [];
+
+        for (const group of partition) {
+            // Mostrar la tabla de patrones del grupo
+            outputDiv.appendChild(buildGroupTable(group, alphabet, delta, classOf));
+
+            // Calcular la firma de cada estado
+            const sigMap = {};
+            for (const s of group.states) {
+                sigMap[s] = alphabet.map(sym => {
+                    const dest = delta(s, sym);
+                    return dest ? (classOf[dest] ?? 'MUERTO') : 'MUERTO';
+                }).join('|');
             }
-        }
-    }
-    logM(`&nbsp;&nbsp;<b>Marcado inicial:</b> ${initMarked.length > 0 ? initMarked.join(', ') : 'ninguno'}`);
-    outputDiv.appendChild(buildDistTable(Q, dist, reason));
 
-    // Iteraciones
-    let iter    = 0;
-    let changed = true;
-    while (changed) {
-        changed = false;
-        iter++;
-        const newlyMarked = [];
+            // Agrupar estados por firma idéntica
+            const sigBuckets = {};
+            for (const s of group.states) {
+                const sig = sigMap[s];
+                if (!sigBuckets[sig]) sigBuckets[sig] = [];
+                sigBuckets[sig].push(s);
+            }
 
-        for (let i = 0; i < n; i++) {
-            for (let j = i + 1; j < n; j++) {
-                if (dist[i][j]) continue;
-                for (const sym of alphabet) {
-                    const pi = delta(Q[i], sym);
-                    const pj = delta(Q[j], sym);
-                    if (pi === pj) continue;
-                    if (pi === null || pj === null) {
-                        dist[i][j]   = true;
-                        reason[i][j] = `δ(${Q[i]},${sym})=${pi || '∅'}, δ(${Q[j]},${sym})=${pj || '∅'} — uno sin transición`;
-                        changed = true;
-                        newlyMarked.push(`<b>(${Q[i]}, ${Q[j]})</b>: ${reason[i][j]}`);
-                        break;
-                    }
-                    const a = Math.min(idx[pi], idx[pj]);
-                    const b = Math.max(idx[pi], idx[pj]);
-                    if (a !== b && dist[a][b]) {
-                        dist[i][j]   = true;
-                        reason[i][j] = `δ(${Q[i]},${sym})=${pi}, δ(${Q[j]},${sym})=${pj} → (${Q[a]},${Q[b]}) ya distinguibles`;
-                        changed = true;
-                        newlyMarked.push(`<b>(${Q[i]}, ${Q[j]})</b>: ${reason[i][j]}`);
-                        break;
-                    }
-                }
+            const buckets = Object.values(sigBuckets);
+
+            if (buckets.length === 1) {
+                newPartition.push(group);
+                logM(`&nbsp;&nbsp;&nbsp;&nbsp;<b>${group.name}</b> — sin división`);
+            } else {
+                stable = false;
+                const subGroups = buckets.map(b => ({ name: nextLetter(), states: b }));
+                newPartition.push(...subGroups);
+                const splitMsg = subGroups.map(sg => `<b>${sg.name}</b> {${sg.states.join(', ')}}`).join(', ');
+                logM(`&nbsp;&nbsp;&nbsp;&nbsp;<b>${group.name}</b> → se divide en: ${splitMsg}`);
             }
         }
 
-        logM(`<br>&nbsp;&nbsp;<b>Iteración ${iter}:</b>`);
-        if (newlyMarked.length > 0) {
-            newlyMarked.forEach(m => logM(`&nbsp;&nbsp;&nbsp;&nbsp;✗ ${m}`));
-            outputDiv.appendChild(buildDistTable(Q, dist, reason));
-        } else {
-            logM(`&nbsp;&nbsp;&nbsp;&nbsp;Sin nuevos pares distinguibles → <span style="color:var(--success)">convergencia alcanzada</span>`);
-        }
+        partition = newPartition;
     }
 
-    // ── Paso 4: Tabla final y pares indistinguibles ────────────────────────
-    logM(`<br><span class="step-title">Paso 4: Tabla final — pares indistinguibles</span>`);
-    outputDiv.appendChild(buildDistTable(Q, dist, reason));
-    const indist = [];
-    for (let i = 0; i < n; i++)
-        for (let j = i + 1; j < n; j++)
-            if (!dist[i][j]) indist.push(`(${Q[i]}, ${Q[j]})`);
-    logM(indist.length > 0
-        ? `&nbsp;&nbsp;Pares indistinguibles: ${indist.join(', ')}`
-        : `&nbsp;&nbsp;No hay pares indistinguibles — el AFD ya es mínimo.`);
+    // ── Paso 4: Partición estable final ───────────────────────────────────
+    logM(`<br><span class="step-title">Paso 4: Partición estable final</span>`);
+    partition.forEach(g => logM(`&nbsp;&nbsp;<b>${g.name}</b> = {${g.states.join(', ')}}`));
 
-    // ── Paso 5: Clases de equivalencia ────────────────────────────────────
-    logM(`<br><span class="step-title">Paso 5: Clases de equivalencia</span>`);
-    const assigned = new Array(n).fill(false);
-    const classes  = [];
-    for (let i = 0; i < n; i++) {
-        if (assigned[i]) continue;
-        const cls = [Q[i]];
-        assigned[i] = true;
-        for (let j = i + 1; j < n; j++) {
-            if (!dist[i][j]) { cls.push(Q[j]); assigned[j] = true; }
-        }
-        classes.push(cls);
-    }
-    const classOf = {};
-    classes.forEach((cls, i) => cls.forEach(s => classOf[s] = `M${i}`));
-    classes.forEach((cls, i) => logM(`&nbsp;&nbsp;M${i} = {${cls.join(', ')}}`));
+    // ── Paso 5: Construir y mostrar el AFD minimizado ──────────────────────
+    logM(`<br><span class="step-title">Paso 5: AFD minimizado</span>`);
 
-    // ── Paso 6: Construir y mostrar el AFD minimizado ──────────────────────
-    logM(`<br><span class="step-title">Paso 6: AFD minimizado</span>`);
-
+    const classOf    = buildClassOf(partition);
     const minInitial = classOf[initial];
     const minFinals  = [...new Set(finals.filter(s => reachable.has(s)).map(s => classOf[s]))];
 
     const minTrans = [];
-    for (const cls of classes) {
-        const rep     = cls[0];
-        const clsName = classOf[rep];
+    for (const g of partition) {
+        const rep     = g.states[0];
+        const clsName = g.name;
         for (const sym of alphabet) {
             const dest = delta(rep, sym);
             if (dest) {
@@ -1099,12 +1083,12 @@ function minimizarAFD() {
     let html = `<table class="conversion-table"><thead><tr><th>Estado</th>`;
     for (const sym of alphabet) html += `<th>${sym}</th>`;
     html += `<th>Final?</th></tr></thead><tbody>`;
-    for (const cls of classes) {
-        const clsName = classOf[cls[0]];
+    for (const g of partition) {
+        const clsName = g.name;
         const isFinal = minFinals.includes(clsName);
         const isStart = clsName === minInitial;
         html += `<tr>`;
-        html += `<td><b>${isStart ? '→ ' : ''}${clsName}${isFinal ? ' *' : ''}</b></td>`;
+        html += `<td><b>${isStart ? '→ ' : ''}${clsName}${isFinal ? ' *' : ''}</b> <span style="color:var(--text-muted);font-size:0.7rem;">{${g.states.join(', ')}}</span></td>`;
         for (const sym of alphabet) {
             const t = minTrans.find(t => t.from === clsName && t.sym === sym);
             html += `<td>${t ? t.to : '∅'}</td>`;
@@ -1117,10 +1101,10 @@ function minimizarAFD() {
     tableDiv.innerHTML = html;
     outputDiv.appendChild(tableDiv);
 
-    logM(`<br><b>Reducción:</b> ${Q.length} estados → ${classes.length} estados minimizados`);
+    logM(`<br><b>Reducción:</b> ${Q.length} estados → ${partition.length} estados minimizados`);
     outputDiv.scrollTop = outputDiv.scrollHeight;
 
-    minimizedDFA = { states: classes.map((_, i) => `M${i}`), initial: minInitial, finals: minFinals, transitions: minTrans, alphabet };
+    minimizedDFA = { states: partition.map(g => g.name), initial: minInitial, finals: minFinals, transitions: minTrans, alphabet };
     document.getElementById('btn-cargar-min').style.display = 'block';
 }
 
