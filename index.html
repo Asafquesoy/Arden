@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resolutor de Autómatas: Lema de Arden</title>
-    
+
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <link rel="stylesheet" href="styles.css">
@@ -15,7 +15,7 @@
             border-radius: 50%;
             transform: scale(0);
             animation: rippleAnim 0.55s linear;
-            background: rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.25);
             pointer-events: none;
         }
         @keyframes rippleAnim {
@@ -25,22 +25,21 @@
 </head>
 <body>
 
-    <!-- Nebula background -->
+    <!-- Background -->
     <div class="bg-canvas" aria-hidden="true">
         <div class="bg-grid"></div>
-        <div class="bg-orb-3"></div>
-        <div class="bg-orb-4"></div>
     </div>
 
     <div class="container">
         <div class="card">
             <h1><i class="fas fa-sliders-h"></i> Configuración</h1>
-            
+
+            <p class="section-label">Archivo</p>
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-shrink: 0;">
-                <button class="btn btn-secondary" style="flex: 1; margin: 0; border: 1px solid rgba(109, 40, 217, 0.4);" onclick="saveAutomatonJSON()">
+                <button class="btn btn-secondary btn-file" onclick="saveAutomatonJSON()">
                     <i class="fas fa-save"></i> Guardar
                 </button>
-                <button class="btn btn-secondary" style="flex: 1; margin: 0; border: 1px solid rgba(109, 40, 217, 0.4);" onclick="document.getElementById('file-upload').click()">
+                <button class="btn btn-secondary btn-file" onclick="document.getElementById('file-upload').click()">
                     <i class="fas fa-folder-open"></i> Cargar
                 </button>
                 <input type="file" id="file-upload" style="display: none;" accept=".json" onchange="loadAutomatonJSON(event)">
@@ -48,14 +47,14 @@
 
             <div class="form-group">
                 <label>Estados (ej. q0,q1)</label>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <div class="input-row">
                     <input type="text" id="states" oninput="drawAutomaton()" value="q0">
-                    <button class="btn btn-secondary" style="width: auto; margin-bottom: 0; padding: 0.6rem 1rem;" onclick="addNewState()" title="Añadir nuevo estado">
+                    <button class="btn btn-secondary btn-icon" onclick="addNewState()" title="Añadir nuevo estado">
                         <i class="fas fa-plus"></i>
                     </button>
                 </div>
             </div>
-            
+
             <div class="form-group">
                 <label>Alfabeto</label>
                 <input type="text" id="alphabet" value="0,1" oninput="drawAutomaton()">
@@ -67,30 +66,31 @@
                     <button id="btn-afd" class="type-btn active" onclick="setAutomatonType('AFD')">AFD</button>
                     <button id="btn-afnd" class="type-btn" onclick="setAutomatonType('AFND')">AFND</button>
                 </div>
-                <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.4rem; font-size:0.75rem;">
+                <div class="status-row">
                     <i class="fas fa-circle-dot" style="font-size:0.6rem; color:var(--success);"></i>
                     <span id="type-mode-label" style="color:var(--success);">Auto-detectado</span>
-                    <button id="btn-reset-type" class="btn btn-secondary" style="display:none; padding:0.15rem 0.5rem; font-size:0.7rem; width:auto; margin:0; border:1px solid rgba(245,158,11,0.4);" onclick="resetToAutoDetect()">
+                    <button id="btn-reset-type" class="btn btn-auto-reset" onclick="resetToAutoDetect()">
                         <i class="fas fa-sync-alt"></i> Auto
                     </button>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
-                <div class="form-group" style="flex: 1;">
+            <div class="form-row">
+                <div class="form-group">
                     <label>Estado Inicial</label>
                     <input type="text" id="initial" oninput="drawAutomaton()" value="q0">
                 </div>
-                <div class="form-group" style="flex: 1;">
+                <div class="form-group">
                     <label>Estado(s) Final(es)</label>
                     <input type="text" id="final" oninput="drawAutomaton()" value="q0">
                 </div>
             </div>
 
-            <label style="flex-shrink: 0;">Transiciones δ(q, a) = p</label>
-            <div class="transitions-container" id="transitions">
-                </div>
-            
+            <div class="form-group" style="margin-bottom: 0.4rem;">
+                <label>Transiciones δ(q, a) = p</label>
+            </div>
+            <div class="transitions-container" id="transitions"></div>
+
             <button class="btn btn-secondary" onclick="addTransitionRow()">
                 <i class="fas fa-plus"></i> Añadir Manualmente
             </button>
@@ -100,17 +100,16 @@
         </div>
 
         <div class="card">
-            <h2><i class="fas fa-project-diagram"></i> Diagrama </h2>
+            <h2><i class="fas fa-project-diagram"></i> Diagrama</h2>
             <div id="mynetwork"></div>
-            <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+            <div class="form-row">
                 <button class="btn btn-secondary" style="flex: 1;" onclick="reorderDiagram()">
-    <i class="fas fa-sync-alt"></i> Centrar
-</button>
+                    <i class="fas fa-sync-alt"></i> Centrar
                 </button>
-                <button class="btn" style="flex: 1.5; background: rgba(109, 40, 217, 0.2); color: #c4b5fd; border: 1px solid rgba(109, 40, 217, 0.4);" onclick="enableEdgeDrawing()">
+                <button class="btn btn-draw" onclick="enableEdgeDrawing()">
                     <i class="fas fa-draw-polygon"></i> Dibujar Ruta
                 </button>
-                <button class="btn" style="flex: 1.5; background: rgba(5, 150, 105, 0.2); color: #34d399; border: 1px solid rgba(5, 150, 105, 0.4);" onclick="exportImage()">
+                <button class="btn btn-export" onclick="exportImage()">
                     <i class="fas fa-camera"></i> Imagen PNG
                 </button>
             </div>
@@ -120,10 +119,18 @@
             <h2><i class="fas fa-terminal"></i> Procedimiento</h2>
 
             <div class="tab-bar">
-                <button class="tab-btn active" data-tab="arden" onclick="switchTab('arden')"><i class="fas fa-magic"></i> Arden</button>
-                <button class="tab-btn" data-tab="evaluar" onclick="switchTab('evaluar')"><i class="fas fa-spell-check"></i> Evaluar</button>
-                <button class="tab-btn" data-tab="conversion" onclick="switchTab('conversion')"><i class="fas fa-exchange-alt"></i> NFA→DFA</button>
-                <button class="tab-btn" data-tab="minimizar" onclick="switchTab('minimizar')"><i class="fas fa-compress-alt"></i> Minimizar</button>
+                <button class="tab-btn active" data-tab="arden" onclick="switchTab('arden')" title="Resolver con Lema de Arden">
+                    <i class="fas fa-magic"></i> Arden
+                </button>
+                <button class="tab-btn" data-tab="evaluar" onclick="switchTab('evaluar')" title="Evaluar una cadena de entrada">
+                    <i class="fas fa-spell-check"></i> Evaluar
+                </button>
+                <button class="tab-btn" data-tab="conversion" onclick="switchTab('conversion')" title="Convertir AFND a AFD por subconjuntos">
+                    <i class="fas fa-exchange-alt"></i> NFA→DFA
+                </button>
+                <button class="tab-btn" data-tab="minimizar" onclick="switchTab('minimizar')" title="Minimizar AFD por tabla de distinguibilidad">
+                    <i class="fas fa-compress-alt"></i> Minimizar
+                </button>
             </div>
 
             <div id="tab-arden" class="tab-content active">
@@ -139,12 +146,13 @@
             <div id="tab-evaluar" class="tab-content">
                 <div class="form-group" style="flex-shrink:0;">
                     <label>Cadena a evaluar (símbolo por símbolo)</label>
-                    <div style="display:flex; gap:0.5rem;">
-                        <input type="text" id="eval-input" placeholder="ej. 0101  (vacío = cadena ε)">
-                        <button class="btn" style="width:auto; padding:0.6rem 1rem; flex-shrink:0;" onclick="evaluarCadena()">
+                    <div class="input-row">
+                        <input type="text" id="eval-input" placeholder="ej. 0101">
+                        <button class="btn btn-icon" onclick="evaluarCadena()">
                             <i class="fas fa-play"></i>
                         </button>
                     </div>
+                    <small class="input-hint">Deja vacío para evaluar la cadena ε</small>
                 </div>
                 <div class="output-console" id="eval-output">
                     <div class="step" style="color: var(--text-muted);">Ingresa una cadena y presiona evaluar...</div>
@@ -158,10 +166,10 @@
                 <div class="output-console" id="conversion-output">
                     <div class="step" style="color: var(--text-muted);">Presiona el botón para iniciar la conversión por subconjuntos...</div>
                 </div>
-                <button id="btn-cargar-afd" class="btn" style="display:none; margin-top:0.5rem; flex-shrink:0; background:rgba(5,150,105,0.2); color:#34d399; border:1px solid rgba(5,150,105,0.4);" onclick="cargarAFDConvertido()">
+                <button id="btn-cargar-afd" class="btn btn-success" style="display:none;" onclick="cargarAFDConvertido()">
                     <i class="fas fa-upload"></i> Cargar como AFD actual
                 </button>
-                <button id="btn-minimizar-convertido" class="btn" style="display:none; margin-top:0.5rem; flex-shrink:0; background:rgba(109,40,217,0.2); color:#c4b5fd; border:1px solid rgba(109,40,217,0.4);" onclick="minimizarAFDConvertido()">
+                <button id="btn-minimizar-convertido" class="btn btn-draw" style="display:none; margin-top:0.5rem; flex: none; width:100%;" onclick="minimizarAFDConvertido()">
                     <i class="fas fa-compress-alt"></i> Minimizar AFD convertido
                 </button>
             </div>
@@ -173,7 +181,7 @@
                 <div class="output-console" id="minimizar-output">
                     <div class="step" style="color: var(--text-muted);">Presiona el botón para minimizar el AFD. Asegúrate de que el autómata sea determinista y sin ε-transiciones.</div>
                 </div>
-                <button id="btn-cargar-min" class="btn" style="display:none; margin-top:0.5rem; flex-shrink:0; background:rgba(5,150,105,0.2); color:#34d399; border:1px solid rgba(5,150,105,0.4);" onclick="cargarAFDMinimizado()">
+                <button id="btn-cargar-min" class="btn btn-success" style="display:none;" onclick="cargarAFDMinimizado()">
                     <i class="fas fa-upload"></i> Cargar AFD minimizado
                 </button>
             </div>

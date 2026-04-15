@@ -6,7 +6,46 @@ let typeOverridden = false;
 
 window.onload = function() {
     drawAutomaton();
+    document.getElementById('transitions').addEventListener('keydown', handleTransitionNavigation);
 };
+
+function handleTransitionNavigation(e) {
+    const key = e.key;
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) return;
+
+    const input = e.target;
+    if (!input.matches('.t-from, .t-symbol, .t-to')) return;
+
+    // Don't intercept left/right if cursor is not at the boundary
+    if (key === 'ArrowLeft' && input.selectionStart !== 0) return;
+    if (key === 'ArrowRight' && input.selectionEnd !== input.value.length) return;
+
+    e.preventDefault();
+
+    const cols = ['t-from', 't-symbol', 't-to'];
+    const currentCol = cols.findIndex(c => input.classList.contains(c));
+    const rows = Array.from(document.querySelectorAll('#transitions .transition-row'));
+    const currentRow = rows.indexOf(input.closest('.transition-row'));
+
+    let targetRow = currentRow;
+    let targetCol = currentCol;
+
+    if (key === 'ArrowRight') {
+        if (currentCol < cols.length - 1) targetCol++;
+        else if (currentRow < rows.length - 1) { targetRow++; targetCol = 0; }
+    } else if (key === 'ArrowLeft') {
+        if (currentCol > 0) targetCol--;
+        else if (currentRow > 0) { targetRow--; targetCol = cols.length - 1; }
+    } else if (key === 'ArrowDown') {
+        if (currentRow < rows.length - 1) targetRow++;
+    } else if (key === 'ArrowUp') {
+        if (currentRow > 0) targetRow--;
+    }
+
+    if (targetRow === currentRow && targetCol === currentCol) return;
+    const targetInput = rows[targetRow].querySelector('.' + cols[targetCol]);
+    if (targetInput) { targetInput.focus(); targetInput.select(); }
+}
 
 function addNewState() {
     const statesInput = document.getElementById('states');
@@ -81,13 +120,13 @@ function drawAutomaton() {
         let isFinal = finals.includes(stateName);
         return {
             id: stateName, label: stateName, shape: isFinal ? 'box' : 'circle', borderWidth: isFinal ? 3 : 2,
-            color: { 
-                background: '#1e0a3c', 
-                border: isInitial ? '#059669' : (isFinal ? '#a21caf' : '#6d28d9'), 
-                highlight: { border: '#fff', background: '#2e1065' } 
+            color: {
+                background: '#ffffff',
+                border: isInitial ? '#059669' : (isFinal ? '#9333ea' : '#7c3aed'),
+                highlight: { border: '#7c3aed', background: '#ede9fe' }
             },
-            font: { color: '#f3e8ff', face: 'Inter', size: 16 }, 
-            shadow: isFinal ? { enabled: true, color: 'rgba(162, 28, 175, 0.3)', size: 15 } : false
+            font: { color: '#2d1f4e', face: 'Inter', size: 16 },
+            shadow: isFinal ? { enabled: true, color: 'rgba(147, 51, 234, 0.25)', size: 12 } : false
         };
     });
 
@@ -111,11 +150,11 @@ function drawAutomaton() {
         let [from, to] = key.split('|');
         let combinedSymbols = edgeMap[key].join(','); 
         
-        edgesArray.push({ 
-            from: from, to: to, label: combinedSymbols, arrows: 'to', 
-            font: { align: 'top', color: '#c4b5fd', size: 14, strokeWidth: 0, background: 'rgba(9, 2, 18, 0.7)' }, 
-            color: { color: '#6d28d9', highlight: '#a21caf' }, 
-            smooth: { type: 'curvedCW', roundness: 0.2 } 
+        edgesArray.push({
+            from: from, to: to, label: combinedSymbols, arrows: 'to',
+            font: { align: 'top', color: '#2d1f4e', size: 13, strokeWidth: 0, background: 'rgba(255, 255, 255, 0.85)' },
+            color: { color: '#7c3aed', highlight: '#9333ea' },
+            smooth: { type: 'curvedCW', roundness: 0.2 }
         });
     }
 
@@ -166,12 +205,12 @@ function drawAutomatonData(statesList, initial, finalsList, transList) {
         return {
             id: stateName, label: stateName, shape: isFinal ? 'box' : 'circle', borderWidth: isFinal ? 3 : 2,
             color: {
-                background: '#1e0a3c',
-                border: isInitial ? '#059669' : (isFinal ? '#a21caf' : '#6d28d9'),
-                highlight: { border: '#fff', background: '#2e1065' }
+                background: '#ffffff',
+                border: isInitial ? '#059669' : (isFinal ? '#9333ea' : '#7c3aed'),
+                highlight: { border: '#7c3aed', background: '#ede9fe' }
             },
-            font: { color: '#f3e8ff', face: 'Inter', size: 16 },
-            shadow: isFinal ? { enabled: true, color: 'rgba(162, 28, 175, 0.3)', size: 15 } : false
+            font: { color: '#2d1f4e', face: 'Inter', size: 16 },
+            shadow: isFinal ? { enabled: true, color: 'rgba(147, 51, 234, 0.25)', size: 12 } : false
         };
     });
 
@@ -187,8 +226,8 @@ function drawAutomatonData(statesList, initial, finalsList, transList) {
         let [from, to] = key.split('|');
         edgesArray.push({
             from, to, label: edgeMap[key].join(','), arrows: 'to',
-            font: { align: 'top', color: '#c4b5fd', size: 14, strokeWidth: 0, background: 'rgba(9, 2, 18, 0.7)' },
-            color: { color: '#6d28d9', highlight: '#a21caf' },
+            font: { align: 'top', color: '#2d1f4e', size: 13, strokeWidth: 0, background: 'rgba(255, 255, 255, 0.85)' },
+            color: { color: '#7c3aed', highlight: '#9333ea' },
             smooth: { type: 'curvedCW', roundness: 0.2 }
         });
     }
@@ -839,6 +878,30 @@ function cargarAFDConvertido() {
 // MINIMIZACIÓN DE AFD (LLENADO DE TABLA)
 // ==========================================
 
+// Construye el elemento DOM de la tabla triangular de distinguibilidad
+function buildDistTable(Q, dist, reason) {
+    const n = Q.length;
+    let html = `<table class="conversion-table" style="font-size:0.75rem; width:auto; margin:0.3rem 0;">`;
+    html += `<thead><tr><th></th>`;
+    for (let i = 0; i < n - 1; i++) html += `<th>${Q[i]}</th>`;
+    html += `</tr></thead><tbody>`;
+    for (let j = 1; j < n; j++) {
+        html += `<tr><th>${Q[j]}</th>`;
+        for (let i = 0; i < j; i++) {
+            const marked = dist[i][j];
+            const tip = reason[i][j] ? ` title="${reason[i][j].replace(/"/g, '&quot;')}"` : '';
+            const color = marked ? 'color:#f87171;font-weight:700' : 'color:#34d399';
+            html += `<td${tip} style="text-align:center;${color}">${marked ? '✗' : '–'}</td>`;
+        }
+        for (let i = j; i < n - 1; i++) html += `<td></td>`;
+        html += `</tr>`;
+    }
+    html += `</tbody></table>`;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    return wrap;
+}
+
 function minimizarAFD() {
     const outputDiv = document.getElementById('minimizar-output');
     outputDiv.innerHTML = '';
@@ -880,59 +943,121 @@ function minimizarAFD() {
         return t ? t.to : null;
     };
 
-    // 1. Eliminar estados inalcanzables
+    // ── Paso 1: Eliminar estados inalcanzables ─────────────────────────────
+    logM(`<span class="step-title">Paso 1: Eliminar estados inalcanzables</span>`);
     const reachable = new Set([initial]);
-    const queue = [initial];
-    while (queue.length > 0) {
-        const s = queue.shift();
+    const bfsQueue  = [initial];
+    logM(`&nbsp;&nbsp;Estado inicial <b>${initial}</b> marcado como alcanzable.`);
+    while (bfsQueue.length > 0) {
+        const s = bfsQueue.shift();
         for (const sym of alphabet) {
             const next = delta(s, sym);
-            if (next && !reachable.has(next)) { reachable.add(next); queue.push(next); }
+            if (next && !reachable.has(next)) {
+                reachable.add(next);
+                bfsQueue.push(next);
+                logM(`&nbsp;&nbsp;δ(${s}, ${sym}) = ${next} → <b>${next}</b> alcanzable`);
+            }
         }
     }
 
-    const Q = states.filter(s => reachable.has(s));
+    const Q          = states.filter(s => reachable.has(s));
     const unreachable = states.filter(s => !reachable.has(s));
     if (unreachable.length > 0) {
-        logM(`<span style="color:var(--text-muted)">Estados inalcanzables eliminados: {${unreachable.join(', ')}}</span>`);
+        logM(`&nbsp;&nbsp;<span style="color:var(--warning)">Eliminados: {${unreachable.join(', ')}}</span>`);
+    } else {
+        logM(`&nbsp;&nbsp;Todos los estados son alcanzables.`);
     }
+    logM(`&nbsp;&nbsp;Q = {${Q.join(', ')}}`);
 
-    // 2. Algoritmo de llenado de tabla
+    // ── Paso 2: Partición inicial ──────────────────────────────────────────
+    logM(`<br><span class="step-title">Paso 2: Partición inicial (finales vs no finales)</span>`);
+    const finalSet    = Q.filter(s => finals.includes(s));
+    const nonFinalSet = Q.filter(s => !finals.includes(s));
+    logM(`&nbsp;&nbsp;Finales    F  = {${finalSet.join(', ') || '∅'}}`);
+    logM(`&nbsp;&nbsp;No finales Q\\F = {${nonFinalSet.join(', ') || '∅'}}`);
+    logM(`&nbsp;&nbsp;Todo par (f, nf) con f ∈ F y nf ∈ Q\\F se marca distinguible.`);
+
+    // ── Paso 3: Algoritmo de llenado de tabla ──────────────────────────────
+    logM(`<br><span class="step-title">Paso 3: Llenado de tabla de distinguibilidad</span>`);
+
     const n   = Q.length;
     const idx = {};
     Q.forEach((s, i) => idx[s] = i);
 
-    // dist[i][j] = true → estados i y j son distinguibles (i < j siempre)
-    const dist = Array.from({ length: n }, () => Array(n).fill(false));
+    const dist   = Array.from({ length: n }, () => Array(n).fill(false));
+    const reason = Array.from({ length: n }, () => Array(n).fill(''));
 
-    // Inicializar: (final, no-final) son distinguibles
+    // Marcado inicial
+    const initMarked = [];
     for (let i = 0; i < n; i++) {
         for (let j = i + 1; j < n; j++) {
-            if (finals.includes(Q[i]) !== finals.includes(Q[j])) dist[i][j] = true;
+            if (finals.includes(Q[i]) !== finals.includes(Q[j])) {
+                dist[i][j]   = true;
+                reason[i][j] = 'uno es final, el otro no';
+                initMarked.push(`(${Q[i]}, ${Q[j]})`);
+            }
         }
     }
+    logM(`&nbsp;&nbsp;<b>Marcado inicial:</b> ${initMarked.length > 0 ? initMarked.join(', ') : 'ninguno'}`);
+    outputDiv.appendChild(buildDistTable(Q, dist, reason));
 
-    // Iterar hasta convergencia
+    // Iteraciones
+    let iter    = 0;
     let changed = true;
     while (changed) {
         changed = false;
+        iter++;
+        const newlyMarked = [];
+
         for (let i = 0; i < n; i++) {
             for (let j = i + 1; j < n; j++) {
                 if (dist[i][j]) continue;
                 for (const sym of alphabet) {
                     const pi = delta(Q[i], sym);
                     const pj = delta(Q[j], sym);
-                    if (pi === pj) continue; // misma dest (o ambas null) → no distingue
-                    if (pi === null || pj === null) { dist[i][j] = true; changed = true; break; }
+                    if (pi === pj) continue;
+                    if (pi === null || pj === null) {
+                        dist[i][j]   = true;
+                        reason[i][j] = `δ(${Q[i]},${sym})=${pi || '∅'}, δ(${Q[j]},${sym})=${pj || '∅'} — uno sin transición`;
+                        changed = true;
+                        newlyMarked.push(`<b>(${Q[i]}, ${Q[j]})</b>: ${reason[i][j]}`);
+                        break;
+                    }
                     const a = Math.min(idx[pi], idx[pj]);
                     const b = Math.max(idx[pi], idx[pj]);
-                    if (a !== b && dist[a][b]) { dist[i][j] = true; changed = true; break; }
+                    if (a !== b && dist[a][b]) {
+                        dist[i][j]   = true;
+                        reason[i][j] = `δ(${Q[i]},${sym})=${pi}, δ(${Q[j]},${sym})=${pj} → (${Q[a]},${Q[b]}) ya distinguibles`;
+                        changed = true;
+                        newlyMarked.push(`<b>(${Q[i]}, ${Q[j]})</b>: ${reason[i][j]}`);
+                        break;
+                    }
                 }
             }
         }
+
+        logM(`<br>&nbsp;&nbsp;<b>Iteración ${iter}:</b>`);
+        if (newlyMarked.length > 0) {
+            newlyMarked.forEach(m => logM(`&nbsp;&nbsp;&nbsp;&nbsp;✗ ${m}`));
+            outputDiv.appendChild(buildDistTable(Q, dist, reason));
+        } else {
+            logM(`&nbsp;&nbsp;&nbsp;&nbsp;Sin nuevos pares distinguibles → <span style="color:var(--success)">convergencia alcanzada</span>`);
+        }
     }
 
-    // 3. Construir clases de equivalencia
+    // ── Paso 4: Tabla final y pares indistinguibles ────────────────────────
+    logM(`<br><span class="step-title">Paso 4: Tabla final — pares indistinguibles</span>`);
+    outputDiv.appendChild(buildDistTable(Q, dist, reason));
+    const indist = [];
+    for (let i = 0; i < n; i++)
+        for (let j = i + 1; j < n; j++)
+            if (!dist[i][j]) indist.push(`(${Q[i]}, ${Q[j]})`);
+    logM(indist.length > 0
+        ? `&nbsp;&nbsp;Pares indistinguibles: ${indist.join(', ')}`
+        : `&nbsp;&nbsp;No hay pares indistinguibles — el AFD ya es mínimo.`);
+
+    // ── Paso 5: Clases de equivalencia ────────────────────────────────────
+    logM(`<br><span class="step-title">Paso 5: Clases de equivalencia</span>`);
     const assigned = new Array(n).fill(false);
     const classes  = [];
     for (let i = 0; i < n; i++) {
@@ -944,10 +1069,12 @@ function minimizarAFD() {
         }
         classes.push(cls);
     }
-
-    // 4. Nombrar clases y construir AFD minimizado
     const classOf = {};
     classes.forEach((cls, i) => cls.forEach(s => classOf[s] = `M${i}`));
+    classes.forEach((cls, i) => logM(`&nbsp;&nbsp;M${i} = {${cls.join(', ')}}`));
+
+    // ── Paso 6: Construir y mostrar el AFD minimizado ──────────────────────
+    logM(`<br><span class="step-title">Paso 6: AFD minimizado</span>`);
 
     const minInitial = classOf[initial];
     const minFinals  = [...new Set(finals.filter(s => reachable.has(s)).map(s => classOf[s]))];
@@ -967,17 +1094,11 @@ function minimizarAFD() {
         }
     }
 
-    // 5. Mostrar resultado
-    logM(`<b>Clases de equivalencia:</b>`);
-    classes.forEach((cls, i) => logM(`M${i} = {${cls.join(', ')}}`));
+    logM(`&nbsp;&nbsp;<b>Estado inicial:</b> ${minInitial} &nbsp; <b>Estados finales:</b> ${minFinals.join(', ') || 'ninguno'}`);
 
-    logM(`<br><b>Estado inicial:</b> ${minInitial} &nbsp; <b>Estados finales:</b> ${minFinals.join(', ') || 'ninguno'}`);
-
-    let html = `<div class="step step-title" style="margin-top:0.5rem">Tabla de Transiciones Minimizada</div>`;
-    html += `<table class="conversion-table"><thead><tr><th>Estado</th>`;
+    let html = `<table class="conversion-table"><thead><tr><th>Estado</th>`;
     for (const sym of alphabet) html += `<th>${sym}</th>`;
     html += `<th>Final?</th></tr></thead><tbody>`;
-
     for (const cls of classes) {
         const clsName = classOf[cls[0]];
         const isFinal = minFinals.includes(clsName);
@@ -992,7 +1113,6 @@ function minimizarAFD() {
         html += `</tr>`;
     }
     html += `</tbody></table>`;
-
     const tableDiv = document.createElement('div');
     tableDiv.innerHTML = html;
     outputDiv.appendChild(tableDiv);
